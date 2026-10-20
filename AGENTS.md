@@ -11,7 +11,7 @@ This file provides guidance to AI coding agents working on this repository.
 ## Goals
 
 - Match or exceed the rewind experience of Claude Code, Gemini CLI, and Cline
-- Provide a dedicated `/rewind` command and `Esc+Esc` shortcut
+- Provide a dedicated `/rw` command (omp reserves `/rewind` and `Esc+Esc`)
 - Per-tool checkpointing (not just per-turn)
 - Safe restore that never deletes ignored directories or large files
 - Checkpoint browser with diff preview before restore
@@ -48,7 +48,7 @@ pi-rewind/
 ├── src/
 │   ├── index.ts           # Extension entry point
 │   ├── core.ts            # Pure git operations (no pi deps)
-│   ├── commands.ts        # /rewind command registration
+│   ├── commands.ts        # /rw command registration
 │   └── ui.ts              # Status indicators, notifications
 ├── tests/
 │   └── core.test.ts       # Unit tests for core git operations
@@ -74,12 +74,12 @@ pi install /path/to/pi-rewind
 Key events used:
 - `session_start` / `session_switch` — Initialize checkpoint state
 - `turn_start` / `turn_end` — Create per-turn checkpoints
-- `tool_execution_end` — Create per-tool checkpoints (write, edit, bash)
-- `session_before_fork` / `session_before_tree` — Offer restore options
+- `tool_execution_end` — Create per-tool checkpoints (write, edit, ast_edit, bash)
+- `session_before_branch` (`reason`: branch/fork/btw) / `session_before_tree` — Offer restore options
+- `session_switch` — Re-initialize on new/resume/fork
 
 Key APIs used:
-- `pi.registerCommand()` — Register `/rewind` command
-- `pi.registerShortcut()` — Register `Esc+Esc` shortcut
+- `pi.registerCommand()` — Register `/rw` command
 - `pi.on()` — Subscribe to lifecycle events
 - `ctx.ui.select()` / `ctx.ui.notify()` / `ctx.ui.setStatus()` — User interaction
 - `ctx.compact()` — "Summarize from here" integration
