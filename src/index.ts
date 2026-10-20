@@ -62,8 +62,13 @@ export default function (pi: ExtensionAPI) {
   // Session lifecycle
   // ========================================================================
 
+  let pendingTreeTargetId: string | null = null;
+
   async function initSession(ctx: ExtensionContext): Promise<void> {
+    // omp can emit session_start and session_switch for the same session.
+    if (state.sessionId === ctx.sessionManager.getSessionId() && state.resumeCheckpoint) return;
     resetState(state);
+    pendingTreeTargetId = null;
 
     state.gitAvailable = await isGitRepo(ctx.cwd);
     if (!state.gitAvailable) {
@@ -126,8 +131,10 @@ export default function (pi: ExtensionAPI) {
   });
 
   // omp emits session_switch (not session_start) for /new, /resume, and /fork.
-  // Re-initialize so the new session ID owns its checkpoints.
+  // Re-initialize so the new session ID owns its checkpoints. omp also emits a
+  // "new" switch at startup, after session_start, so skip an unchanged session.
   pi.on("session_switch", async (_event, ctx) => {
+    if (ctx.sessionManager.getSessionId() === state.sessionId) return;
     await initSession(ctx);
   });
 
@@ -263,8 +270,25 @@ export default function (pi: ExtensionAPI) {
     return handleBranchRestore(state, event, ctx);
   });
 
-  pi.on("session_before_tree", async (event, ctx) => {
-    return handleTreeRestore(state, event, ctx);
+  pi.on("session_before_tree", async (event) => {
+    if (state.suppressTreeRestorePrompt) {
+      state.suppressTreeRestorePrompt = false;
+      pendingTreeTargetId = null;
+      return;
+    }
+    pendingTreeTargetId = event.preparation?.targetId ?? event.targetId ?? null;
+  });
+
+  // Prompt only after navigation settles: omp's transcript rewind selector
+  // keeps a fullscreen overlay up while navigateTree runs, and a dialog opened
+  // from session_before_tree would be rendered underneath it.
+  pi.on("session_tree", async (_event, ctx) => {
+    const targetId = pendingTreeTargetId;
+    pendingTreeTargetId = null;
+    if (!targetId) return;
+    setTimeout(() => {
+      void handleTreeRestore(state, targetId, ctx);
+    }, 50);
   });
 
   // ========================================================================

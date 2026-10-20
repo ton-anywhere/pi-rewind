@@ -35,6 +35,8 @@ export interface RewindState {
   turnHadMutations: boolean;
   /** Last worktree tree SHA (to detect actual file changes) */
   lastWorktreeTree: string | null;
+  /** Set when this extension navigates the tree, to skip its own restore prompt */
+  suppressTreeRestorePrompt: boolean;
 }
 
 export function createInitialState(): RewindState {
@@ -53,6 +55,7 @@ export function createInitialState(): RewindState {
     turnToolDescriptions: [],
     turnHadMutations: false,
     lastWorktreeTree: null,
+    suppressTreeRestorePrompt: false,
   };
 }
 
@@ -71,4 +74,5 @@ export function resetState(state: RewindState): void {
   state.turnToolDescriptions = [];
   state.turnHadMutations = false;
   state.lastWorktreeTree = null;
+  state.suppressTreeRestorePrompt = false;
 }

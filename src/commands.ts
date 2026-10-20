@@ -142,7 +142,7 @@ async function runRewindFlow(
     // Navigate conversation tree to the checkpoint's point
     // Find the entry closest to the checkpoint timestamp
     const branch = ctx.sessionManager.getBranch();
-    const targetEntry = branch.reduce((best: any, entry: any) => {
+    const targetEntry = branch.reduce<{ id: string; timestamp?: string } | null>((best, entry) => {
       if (!entry.timestamp) return best;
       const entryTs = new Date(entry.timestamp).getTime();
       if (!best) return entryTs <= target.timestamp ? entry : best;
@@ -152,10 +152,14 @@ async function runRewindFlow(
     }, null);
 
     if (targetEntry) {
+      // This navigation already restored files above; don't prompt again.
+      state.suppressTreeRestorePrompt = true;
       try {
         await ctx.navigateTree(targetEntry.id, { summarize: true });
       } catch {
         ctx.ui.notify("Conversation rewind partially failed", "warning");
+      } finally {
+        state.suppressTreeRestorePrompt = false;
       }
     }
   }
@@ -270,16 +274,23 @@ export async function handleBranchRestore(
   return undefined;
 }
 
+/**
+ * Offer a file restore after tree navigation has completed.
+ *
+ * omp's transcript rewind selector keeps a fullscreen overlay mounted while
+ * navigateTree runs, so a dialog opened from session_before_tree is hidden
+ * beneath it and receives keys invisibly. Prompting after session_tree avoids
+ * that; navigation itself is no longer cancellable from this dialog.
+ */
 export async function handleTreeRestore(
   state: RewindState,
-  event: { preparation?: { targetId: string }; targetId?: string },
+  targetId: string,
   ctx: RestoreContext,
-): Promise<{ cancel: true } | undefined> {
-  if (!state.gitAvailable || !state.repoRoot || !state.sessionId) return undefined;
-  if (!ctx.hasUI) return undefined;
+): Promise<void> {
+  if (!state.gitAvailable || !state.repoRoot || !state.sessionId) return;
+  if (!ctx.hasUI) return;
 
-  const targetId = event.preparation?.targetId ?? event.targetId;
-  const entry = targetId ? ctx.sessionManager.getEntry(targetId) : undefined;
+  const entry = ctx.sessionManager.getEntry(targetId);
   const targetTs = entry?.timestamp ? new Date(entry.timestamp).getTime() : Date.now();
 
   const sorted = [...state.checkpoints.values()].sort((a, b) => b.timestamp - a.timestamp);
@@ -288,26 +299,22 @@ export async function handleTreeRestore(
   const options: string[] = ["Keep current files"];
   if (cp) options.push("Restore files to that point");
   if (state.redoStack.length > 0) options.push("↩ Undo last rewind");
-  options.push("Cancel navigation");
 
   const choice = await ctx.ui.select("Restore Options", options);
 
-  if (!choice || choice === "Cancel navigation") return { cancel: true };
-  if (choice === "Keep current files") return undefined;
+  if (!choice || choice === "Keep current files") return;
 
   if (choice === "↩ Undo last rewind" && state.redoStack.length > 0) {
     const undoCp = state.redoStack.pop()!;
     await performRestore(state, ctx, undoCp, "files");
     ctx.ui.notify("Files restored to before last rewind", "info");
-    return { cancel: true };
+    return;
   }
 
   if (cp) {
     await performRestore(state, ctx, cp, "files");
     ctx.ui.notify("Files restored to checkpoint", "info");
   }
-
-  return undefined;
 }
 
 // ============================================================================
