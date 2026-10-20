@@ -24,7 +24,7 @@ import {
   loadAllCheckpoints,
   pruneCheckpoints,
   pruneOldSessions,
-  MUTATING_TOOLS,
+  isMutatingTool,
   DEFAULT_MAX_CHECKPOINTS,
 } from "./core.js";
 import { createInitialState, resetState } from "./state.js";
@@ -162,7 +162,7 @@ export default function (pi: ExtensionAPI) {
   // ========================================================================
 
   pi.on("tool_call", async (event, _ctx) => {
-    if (MUTATING_TOOLS[event.toolName]) {
+    if (isMutatingTool(event.toolName)) {
       const desc = describeToolCall(event.toolName, event.input);
       state.pendingToolInfo.set(event.toolCallId, desc);
     }
@@ -173,7 +173,7 @@ export default function (pi: ExtensionAPI) {
   // ========================================================================
 
   pi.on("tool_execution_end", async (event, _ctx) => {
-    if (!MUTATING_TOOLS[event.toolName]) return;
+    if (!isMutatingTool(event.toolName)) return;
 
     state.turnHadMutations = true;
 
