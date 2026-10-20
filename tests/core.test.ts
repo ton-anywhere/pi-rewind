@@ -125,10 +125,11 @@ async function runTests() {
   });
 
   await test("MUTATING_TOOLS has expected tools", async () => {
-    assert(MUTATING_TOOLS.has("write"), "write");
-    assert(MUTATING_TOOLS.has("edit"), "edit");
-    assert(MUTATING_TOOLS.has("bash"), "bash");
-    assert(!MUTATING_TOOLS.has("read"), "read should not be mutating");
+    assert(MUTATING_TOOLS.write, "write");
+    assert(MUTATING_TOOLS.edit, "edit");
+    assert(MUTATING_TOOLS.ast_edit, "ast_edit");
+    assert(MUTATING_TOOLS.bash, "bash");
+    assert(!MUTATING_TOOLS.read, "read should not be mutating");
   });
 
   // ------ Git helpers ------

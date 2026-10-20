@@ -15,7 +15,7 @@
  *   pi install github.com/arpagon/pi-rewind
  */
 
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import {
   isGitRepo,
   getRepoRoot,
@@ -29,7 +29,7 @@ import {
 } from "./core.js";
 import { createInitialState, resetState } from "./state.js";
 import { updateStatus, clearStatus } from "./ui.js";
-import { registerCommands, handleForkRestore, handleTreeRestore } from "./commands.js";
+import { registerCommands, handleBranchRestore, handleTreeRestore } from "./commands.js";
 
 /** Truncate a string to maxLen, adding ellipsis if needed */
 function truncate(s: string, maxLen: number): string {
@@ -55,14 +55,14 @@ function describeToolCall(toolName: string, input: any): string {
 export default function (pi: ExtensionAPI) {
   const state = createInitialState();
 
-  // Register /rewind command and Esc+Esc shortcut
+  // Register the /rw command
   registerCommands(pi, state);
 
   // ========================================================================
   // Session lifecycle
   // ========================================================================
 
-  async function initSession(ctx: any): Promise<void> {
+  async function initSession(ctx: ExtensionContext): Promise<void> {
     resetState(state);
 
     state.gitAvailable = await isGitRepo(ctx.cwd);
@@ -121,14 +121,13 @@ export default function (pi: ExtensionAPI) {
     }
   }
 
-  pi.on("session_start", async (event, ctx) => {
-    if (event.reason === "fork") {
-      // Fork: just update session ID for new checkpoint tagging
-      if (!state.gitAvailable) return;
-      state.sessionId = ctx.sessionManager.getSessionId();
-      return;
-    }
-    // startup, reload, new, resume: full re-initialization
+  pi.on("session_start", async (_event, ctx) => {
+    await initSession(ctx);
+  });
+
+  // omp emits session_switch (not session_start) for /new, /resume, and /fork.
+  // Re-initialize so the new session ID owns its checkpoints.
+  pi.on("session_switch", async (_event, ctx) => {
     await initSession(ctx);
   });
 
@@ -156,7 +155,7 @@ export default function (pi: ExtensionAPI) {
   // ========================================================================
 
   pi.on("tool_call", async (event, _ctx) => {
-    if (MUTATING_TOOLS.has(event.toolName)) {
+    if (MUTATING_TOOLS[event.toolName]) {
       const desc = describeToolCall(event.toolName, event.input);
       state.pendingToolInfo.set(event.toolCallId, desc);
     }
@@ -167,7 +166,7 @@ export default function (pi: ExtensionAPI) {
   // ========================================================================
 
   pi.on("tool_execution_end", async (event, _ctx) => {
-    if (!MUTATING_TOOLS.has(event.toolName)) return;
+    if (!MUTATING_TOOLS[event.toolName]) return;
 
     state.turnHadMutations = true;
 
@@ -258,8 +257,10 @@ export default function (pi: ExtensionAPI) {
   // Fork / tree restore hooks
   // ========================================================================
 
-  pi.on("session_before_fork", async (event, ctx) => {
-    return handleForkRestore(state, event, ctx);
+  // omp replaced pi's session_before_fork with session_before_branch; the
+  // reason tells us whether entryId is dropped ("branch") or kept ("fork", "btw").
+  pi.on("session_before_branch", async (event, ctx) => {
+    return handleBranchRestore(state, event, ctx);
   });
 
   pi.on("session_before_tree", async (event, ctx) => {
