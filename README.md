@@ -35,8 +35,8 @@ Every major coding agent now has rewind/undo: Claude Code (`/rewind`), Gemini CL
 ## Install
 
 ```bash
-# omp, from GitHub
-omp plugin install github:arpagon/pi-rewind
+# omp, this fork's omp-compat branch
+omp plugin install "github:ton-anywhere/pi-rewind#fix/omp-compat"
 
 # Pi, from GitHub
 pi install github.com/arpagon/pi-rewind
