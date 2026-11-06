@@ -1,14 +1,23 @@
 {
-  "name": "pi-rewind",
+  "name": "@ton-anywhere/pi-rewind",
   "version": "0.5.0",
-  "description": "Checkpoint/rewind extension for Pi and omp — per-tool snapshots, /rw command, safe restore, redo stack",
+  "description": "Checkpoint/rewind extension for Pi and omp — per-tool snapshots, /rw command, safe restore, redo stack. Fork of arpagon/pi-rewind.",
   "license": "MIT",
-  "author": "arpagon",
+  "author": {
+    "name": "arpagon",
+    "url": "https://github.com/arpagon"
+  },
+  "contributors": [
+    {
+      "name": "Ton Anywhere",
+      "url": "https://github.com/ton-anywhere"
+    }
+  ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/arpagon/pi-rewind.git"
+    "url": "git+https://github.com/ton-anywhere/pi-rewind.git"
   },
-  "homepage": "https://arpagon.github.io/pi-rewind",
+  "homepage": "https://github.com/arpagon/pi-rewind",
   "keywords": [
     "pi",
     "pi-coding-agent",

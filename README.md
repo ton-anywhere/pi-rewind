@@ -1,4 +1,10 @@
+---
+forked_from: https://github.com/arpagon/pi-rewind
+---
+
 # pi-rewind
+
+> **Fork of [arpagon/pi-rewind](https://github.com/arpagon/pi-rewind)** by [arpagon](https://github.com/arpagon). All original design and code are theirs; this fork adds omp support and is maintained by [Ton Anywhere](https://github.com/ton-anywhere).
 
 Checkpoint/rewind extension for the [Pi coding agent](https://github.com/badlogic/pi-mono) and [omp](https://github.com/can1357/oh-my-pi). Creates automatic git-based snapshots of your working tree, allowing you to rewind file changes and conversation state when the AI makes mistakes.
 
@@ -35,17 +41,17 @@ Every major coding agent now has rewind/undo: Claude Code (`/rewind`), Gemini CL
 ## Install
 
 ```bash
-# Pi, from npm
+# Pi, from GitHub (this fork — includes omp support)
+pi install github.com/ton-anywhere/pi-rewind
+
+# omp, from GitHub (this fork)
+omp plugin install github:ton-anywhere/pi-rewind
+
+# Upstream npm package (Pi only, no omp support)
 pi install npm:pi-rewind
 
-# Pi, from GitHub
-pi install github.com/arpagon/pi-rewind
-
-# omp, from GitHub
-omp plugin install github:arpagon/pi-rewind
-
 # For development
-git clone git@github.com:arpagon/pi-rewind.git
+git clone git@github.com:ton-anywhere/pi-rewind.git
 pi -e ./pi-rewind/src/index.ts
 omp -e ./pi-rewind/src/index.ts
 ```
@@ -103,7 +109,9 @@ omp -e ./src/index.ts
 
 ## Lineage
 
-This project builds on research and code from:
+This project is a fork of **[arpagon/pi-rewind](https://github.com/arpagon/pi-rewind)** by **[arpagon](https://github.com/arpagon)** — the original implementation, architecture, and documentation this fork builds on.
+
+It also builds on research and code from:
 
 - **[checkpoint-pi](https://github.com/prateekmedia/pi-hooks/tree/main/checkpoint)** by prateekmedia — Two-layer architecture, safe restore, smart filtering, unit tests (base)
 - **[pi-rewind-hook](https://github.com/nicobailon/pi-rewind-hook)** by nicobailon — Resume checkpoints, footer status, notifications, auto-pruning (UX inspiration)
@@ -116,4 +124,4 @@ And draws feature parity targets from:
 
 ## License
 
-MIT
+MIT © 2026 [Ton Anywhere](https://github.com/ton-anywhere) (fork) and [arpagon](https://github.com/arpagon) (original work)
