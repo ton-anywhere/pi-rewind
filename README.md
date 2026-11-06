@@ -17,6 +17,7 @@ Every major coding agent now has rewind/undo: Claude Code (`/rewind`), Gemini CL
 - [x] Smart checkpointing — snapshots after write/edit/bash tools, 1 per turn
 - [x] Smart dedup — skips checkpoints when worktree unchanged (read-only bash like `ls`, `find`, `cat` don't create checkpoints)
 - [x] Descriptive labels — `"user prompt" → write → file.ts, edit → other.ts`
+- [x] Copy the selected checkpoint's prompt — `alt+shift+c` on the rewind screen (OSC 52, same chord as the omp composer)
 - [x] Diff preview before restore — see exactly what changes
 - [x] Branch labels in picker — `[feature]` for same-branch, `⚠️ main` for cross-branch
 - [x] Redo stack (multi-level undo) — "↩ Undo last rewind" in all flows
@@ -89,6 +90,7 @@ tests/
 ```bash
 # Run tests
 npx tsx tests/core.test.ts
+npx tsx tests/picker.test.ts
 npx tsx tests/extension.test.ts
 
 # Run benchmarks

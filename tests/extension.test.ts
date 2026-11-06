@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import extension from "../src/index.js";
@@ -12,12 +12,14 @@ function setup(ompShaped: boolean) {
   const handlers = new Map<string, Handler>();
   const commands: string[] = [];
   const shortcuts: string[] = [];
+  const commandHandlers = new Map<string, Handler>();
   const pi: Record<string, unknown> = {
     on(event: string, handler: Handler) {
       handlers.set(event, handler);
     },
-    registerCommand(name: string) {
+    registerCommand(name: string, options: { handler: Handler }) {
       commands.push(name);
+      commandHandlers.set(name, options.handler);
     },
     registerShortcut(key: string) {
       shortcuts.push(key);
@@ -25,23 +27,50 @@ function setup(ompShaped: boolean) {
   };
   if (ompShaped) pi.logger = {};
   extension(pi as never);
-  return { handlers, commands, shortcuts };
+  return { handlers, commands, shortcuts, commandHandlers };
 }
 
-function makeCtx(cwd: string, select: (title: string, options: string[]) => string | undefined) {
+function makeCtx(
+  cwd: string,
+  select: (title: string, options: string[]) => string | undefined,
+  hooks: { customKeys?: string[]; confirm?: () => boolean; branch?: unknown[] } = {},
+) {
+  const theme = { fg: (_color: string, text: string) => text };
   return {
     cwd,
     hasUI: true,
     ui: {
       select: async (title: string, options: string[]) => select(title, options),
+      confirm: async () => hooks.confirm?.() ?? true,
+      // Drive the custom rewind picker: mount it, then feed the given keys.
+      custom: (factory: unknown) => {
+        const { promise, resolve, reject } = Promise.withResolvers<unknown>();
+        // A hung picker must fail the test, not let Node exit 0 unwatched; a
+        // settle cancels the guard so async key feeds stay legal.
+        const unsettled = setImmediate(() => reject(new Error("rewind picker never settled")));
+        const settle = (index?: number) => {
+          clearImmediate(unsettled);
+          resolve(index);
+        };
+        const component = (
+          factory as (
+            tui: { requestRender(): void },
+            theme: typeof theme,
+            keybindings: unknown,
+            done: (index?: number) => void,
+          ) => { handleInput(data: string): void }
+        )({ requestRender() {} }, theme, { matches: () => false }, settle);
+        for (const key of hooks.customKeys ?? []) component.handleInput(key);
+        return promise;
+      },
       notify() {},
       setStatus() {},
       clearStatus() {},
-      theme: { fg: (_color: string, text: string) => text },
+      theme,
     },
     sessionManager: {
       getSessionId: () => "test-session",
-      getBranch: () => [],
+      getBranch: () => hooks.branch ?? [],
       getEntry: () => ({ timestamp: new Date().toISOString() }),
     },
   };
@@ -108,6 +137,76 @@ async function main(): Promise<void> {
     ]);
   } finally {
     rmSync(repo, { recursive: true, force: true });
+  }
+
+  // ---- rewind flow: undo row vs checkpoint rows map to the right target ----
+  const flowRepo = mkdtempSync(join(tmpdir(), "pi-rewind-flow-"));
+  try {
+    const g = (...args: string[]) => execFileSync("git", args, { cwd: flowRepo });
+    g("init", "-q");
+    g("config", "user.email", "test@test");
+    g("config", "user.name", "test");
+    writeFileSync(join(flowRepo, "a.txt"), "one\n");
+    g("add", ".");
+    g("commit", "-qm", "init");
+
+    const flowPi = setup(false);
+    const file = join(flowRepo, "a.txt");
+    const rewind = flowPi.commandHandlers.get("rewind")!;
+    const filesOnly = (title: string, options: string[]) =>
+      options.find((option) => option.startsWith("Files only"));
+    let branch: unknown[] = [];
+    const ctxFor = (customKeys: string[]) => makeCtx(flowRepo, filesOnly, { customKeys, branch });
+    const ctx = ctxFor(["\r"]);
+
+    const firstPromptTs = new Date(Date.now() - 50).toISOString();
+    await flowPi.handlers.get("session_start")!({ reason: "startup" }, ctx);
+    branch = [
+      { type: "message", timestamp: firstPromptTs, message: { role: "user", content: "first prompt" } },
+      {
+        type: "message",
+        timestamp: new Date().toISOString(),
+        message: { role: "user", content: "second prompt" },
+      },
+    ];
+    writeFileSync(file, "two\n");
+    await flowPi.handlers.get("before_agent_start")!({ prompt: "do the thing" }, ctx);
+    await flowPi.handlers.get("tool_call")!({ toolName: "write", toolCallId: "t1", input: { path: "a.txt" } }, ctx);
+    await flowPi.handlers.get("tool_execution_end")!({ toolName: "write", toolCallId: "t1" }, ctx);
+    await flowPi.handlers.get("turn_end")!({ turnIndex: 1 }, ctx);
+
+    writeFileSync(file, "three\n");
+    await rewind("", ctx);
+    assert.equal(readFileSync(file, "utf-8"), "two\n", "row 1 restores the newest checkpoint");
+
+    writeFileSync(file, "four\n");
+    const copies: string[] = [];
+    const stdout = process.stdout as unknown as { write(chunk: unknown): boolean };
+    const originalWrite = stdout.write;
+    stdout.write = (chunk: unknown) => {
+      copies.push(String(chunk));
+      return true;
+    };
+    try {
+      await rewind("", ctxFor(["j", "\x1bC", "\r"]));
+    } finally {
+      stdout.write = originalWrite;
+    }
+    assert.equal(
+      readFileSync(file, "utf-8"),
+      "two\n",
+      "the row after the undo row still maps to checkpoints[0]",
+    );
+    assert.ok(
+      copies.includes(`\x1b]52;c;${Buffer.from("second prompt").toString("base64")}\x07`),
+      "copy uses the same undo-row offset as the restore target",
+    );
+
+    writeFileSync(file, "five\n");
+    await rewind("", ctxFor(["\r"]));
+    assert.equal(readFileSync(file, "utf-8"), "four\n", "undo restores the pre-rewind snapshot");
+  } finally {
+    rmSync(flowRepo, { recursive: true, force: true });
   }
 
   console.log("✅ extension smoke tests passed");

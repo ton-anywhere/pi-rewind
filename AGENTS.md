@@ -49,10 +49,12 @@ pi-rewind/
 │   ├── index.ts           # Extension entry point
 │   ├── core.ts            # Pure git operations (no pi deps)
 │   ├── commands.ts        # /rewind + /rw registration, fork/branch/tree handlers
+│   ├── picker.ts          # Rewind screen: custom list, footer hints, prompt copy
 │   ├── state.ts           # Shared mutable state
 │   └── ui.ts              # Status indicators, notifications
 ├── tests/
 │   ├── core.test.ts       # Unit tests for core git operations
+│   ├── picker.test.ts     # Picker: prompt lookup, copy chord, footer hint, cancel
 │   └── extension.test.ts  # Extension load, command/event, and fork-handler smoke test
 └── docs/
     └── planning/          # Research and planning documents
@@ -66,6 +68,7 @@ pi -e ./src/index.ts
 
 # Run tests
 npx tsx tests/core.test.ts
+npx tsx tests/picker.test.ts
 npx tsx tests/extension.test.ts
 
 # Install globally
@@ -83,8 +86,9 @@ Key events used:
 
 Key APIs used:
 - `pi.registerCommand()` — Register `/rewind` (Pi) and `/rw` (omp)
+- `ctx.ui.custom()` — rewind screen component (footer hints, prompt copy)
 - `pi.on()` — Subscribe to lifecycle events
-- `ctx.ui.select()` / `ctx.ui.notify()` / `ctx.ui.setStatus()` — User interaction
+- `ctx.ui.select()` / `ctx.ui.notify()` / `ctx.ui.setStatus()` — User interaction; `select()` is the picker fallback when a host has no `custom()`
 - `ctx.compact()` — "Summarize from here" integration
 - `pi.exec()` — Execute git commands
 

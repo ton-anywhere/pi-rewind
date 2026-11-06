@@ -9,6 +9,7 @@ import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-cod
 import type { RewindState } from "./state.js";
 import type { CheckpointData } from "./core.js";
 import { restoreCheckpoint, createCheckpoint, diffCheckpoints, sanitizeForRef, git } from "./core.js";
+import { pickCheckpoint, promptAt } from "./picker.js";
 
 // ============================================================================
 // Helpers
@@ -82,14 +83,22 @@ async function runRewindFlow(
     items.push(formatCheckpointLabel(checkpoints[i], i, state, currentBranch));
   }
 
-  const choice = await ctx.ui.select("Rewind to checkpoint:", items);
-  if (!choice) {
+  // Items after the undo row map onto checkpoints.
+  const offset = undoRef ? 1 : 0;
+  const branch = ctx.sessionManager.getBranch();
+  const copyText = (itemIndex: number): string | undefined => {
+    const cp = checkpoints[itemIndex - offset];
+    return cp ? promptAt(branch, cp.timestamp) : undefined;
+  };
+
+  const selected = await pickCheckpoint(ctx, "Rewind to checkpoint:", items, copyText);
+  if (selected === undefined) {
     ctx.ui.notify("Rewind cancelled", "info");
     return;
   }
 
   // Handle undo
-  if (choice === "↩ Undo last rewind" && undoRef) {
+  if (undoRef && selected === 0) {
     await performRestore(state, ctx, undoRef, "files");
     state.redoStack.pop();
     ctx.ui.notify("Undo successful — files restored to before last rewind", "info");
@@ -97,7 +106,7 @@ async function runRewindFlow(
   }
 
   // Find selected checkpoint
-  const idx = items.indexOf(choice) - (undoRef ? 1 : 0);
+  const idx = selected - offset;
   if (idx < 0 || idx >= checkpoints.length) return;
   const target = checkpoints[idx];
 
@@ -363,14 +372,15 @@ export function registerCommands(pi: ExtensionAPI, state: RewindState): void {
 
       const currentBranch = await git("rev-parse --abbrev-ref HEAD", state.repoRoot).catch(() => "unknown");
       const items = checkpoints.map((cp, i) => formatCheckpointLabel(cp, i, state, currentBranch));
-      const choice = await ctx.ui.select("Quick rewind (files only):", items);
-      if (!choice) return;
+      const branch = ctx.sessionManager.getBranch();
+      const index = await pickCheckpoint(ctx, "Quick rewind (files only):", items, (itemIndex) => {
+        const cp = checkpoints[itemIndex];
+        return cp ? promptAt(branch, cp.timestamp) : undefined;
+      });
+      if (index === undefined) return;
 
-      const idx = items.indexOf(choice);
-      if (idx < 0) return;
-
-      await performRestore(state, { ui: ctx.ui }, checkpoints[idx], "files");
-      ctx.ui.notify(`Files rewound to checkpoint #${idx + 1}`, "info");
+      await performRestore(state, { ui: ctx.ui }, checkpoints[index], "files");
+      ctx.ui.notify(`Files rewound to checkpoint #${index + 1}`, "info");
     },
   });
 }
