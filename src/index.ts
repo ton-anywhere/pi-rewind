@@ -30,6 +30,7 @@ import {
 import { createInitialState, resetState } from "./state.js";
 import { updateStatus, clearStatus } from "./ui.js";
 import { registerCommands, handleForkRestore, handleTreeRestore } from "./commands.js";
+import { registerExperimentalCommand } from "./experimental.js";
 
 /** Truncate a string to maxLen, adding ellipsis if needed */
 function truncate(s: string, maxLen: number): string {
@@ -79,6 +80,7 @@ export default function (pi: ExtensionAPI) {
   const omp = pi as unknown as OmpEvents;
 
   registerCommands(pi, state);
+  registerExperimentalCommand(pi, state, isOmp);
 
   // ========================================================================
   // Session lifecycle

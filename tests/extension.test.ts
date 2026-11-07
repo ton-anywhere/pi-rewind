@@ -79,7 +79,7 @@ function makeCtx(
 async function main(): Promise<void> {
   // ---- omp-shaped host: handlers registered, tree prompt deferred ----
   const omp = setup(true);
-  assert.deepEqual(omp.commands.sort(), ["rewind", "rw"]);
+  assert.deepEqual(omp.commands.sort(), ["re", "rewind", "rw"]);
   assert.deepEqual(omp.shortcuts, ["escape escape"]);
   for (const event of [
     "session_start",

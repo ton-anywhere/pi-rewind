@@ -108,7 +108,7 @@ export function isCopyKey(data: string, keybindings?: Keybindings): boolean {
 }
 
 /** shortcut: OSC 52 only; terminals with clipboard writes disabled need a native fallback. */
-function writeOsc52(text: string): boolean {
+export function writeOsc52(text: string): boolean {
   const encoded = Buffer.from(text, "utf8").toString("base64");
   if (encoded.length > MAX_OSC52_ENCODED) return false;
   process.stdout.write(`\x1b]52;c;${encoded}\x07`);
@@ -116,7 +116,7 @@ function writeOsc52(text: string): boolean {
 }
 
 /** Display label for the copy chord, honoring a host remap when it exposes one. */
-function copyKeyLabel(keybindings: Keybindings): string {
+export function copyKeyLabel(keybindings: Keybindings): string {
   const getKeys = keybindings.getKeys;
   const keys = typeof getKeys === "function" ? getKeys.call(keybindings, "app.clipboard.copyPrompt") : [];
   return keys.length > 0 ? keys.join("/") : "alt+shift+c";
@@ -248,10 +248,10 @@ export async function pickCheckpoint(
   return typeof result === "number" ? result : undefined;
 }
 
-type HintSegment = { color: string; text: string };
+export type HintSegment = { color: string; text: string };
 
 /** Paint hint segments, cutting the hint at the budget so the row fits `max`. */
-function paintHint(
+export function paintHint(
   fg: (color: string, text: string) => string,
   segments: readonly HintSegment[],
   max: number,
@@ -295,7 +295,7 @@ function charWidth(code: number): number {
 }
 
 /** Clamp to `max` terminal columns, ellipsizing. Emoji sequences still count per code point. */
-function clamp(raw: string, max: number): string {
+export function clamp(raw: string, max: number): string {
   if (max <= 0) return "";
   // A control character would break the row: a pasted prompt can carry newlines or tabs.
   const text = raw.replace(/[\r\n\t]+/g, " ");

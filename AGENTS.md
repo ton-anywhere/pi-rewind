@@ -50,11 +50,13 @@ pi-rewind/
 │   ├── core.ts            # Pure git operations (no pi deps)
 │   ├── commands.ts        # /rewind + /rw registration, fork/branch/tree handlers
 │   ├── picker.ts          # Rewind screen: custom list, footer hints, prompt copy
+│   ├── experimental.ts    # /re: fullscreen picker + diff preview, files-only restore
 │   ├── state.ts           # Shared mutable state
 │   └── ui.ts              # Status indicators, notifications
 ├── tests/
 │   ├── core.test.ts       # Unit tests for core git operations
 │   ├── picker.test.ts     # Picker: prompt lookup, copy chord, footer hint, cancel
+│   ├── experimental.test.ts # /re picker: frame, navigation, copy, preview, fallback
 │   └── extension.test.ts  # Extension load, command/event, and fork-handler smoke test
 └── docs/
     └── planning/          # Research and planning documents
@@ -69,6 +71,7 @@ pi -e ./src/index.ts
 # Run tests
 npx tsx tests/core.test.ts
 npx tsx tests/picker.test.ts
+npx tsx tests/experimental.test.ts
 npx tsx tests/extension.test.ts
 
 # Install globally
